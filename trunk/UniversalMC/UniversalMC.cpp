@@ -6,7 +6,6 @@
 #include <string>
 #include <iostream>
 #include "UniversalMC.h"
-#include <shellapi.h>
 
 using namespace std;
 
@@ -31,9 +30,9 @@ bool CheckIfHandleIsTibiaMutex(SYSTEM_HANDLE sh)
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, 0, sh.dwProcessId);
 	if (NT_SUCCESS(NtDuplicateObject(hProcess, (HANDLE)sh.wValue, GetCurrentProcess(), &hFake, 0, 0, 0)))
 	{
-		POBJECT_TYPE_INFORMATION	typeInfo = (POBJECT_TYPE_INFORMATION)new BYTE[0x1000];
-		PUNICODE_STRING				nameInfo = (PUNICODE_STRING)new BYTE[0x1000];
-		DWORD						read;
+		POBJECT_TYPE_INFORMATION typeInfo = (POBJECT_TYPE_INFORMATION)new BYTE[0x1000];
+		PUNICODE_STRING nameInfo = (PUNICODE_STRING)new BYTE[0x1000];
+		DWORD read;
 		
 		
 		if (NT_SUCCESS(NtQueryObject(hFake, ObjectTypeInformation, typeInfo, 0x1000, &read)))
@@ -47,7 +46,7 @@ bool CheckIfHandleIsTibiaMutex(SYSTEM_HANDLE sh)
 				if (!NtQueryObject(hFake, ObjectNameInformation, nameInfo, 0x1000, &read))
 				{
 					//Cleanup, no name info
-					CloseHandle((HANDLE)sh.wValue);
+					CloseHandle(hFake);
 					CloseHandle(hProcess);
 					delete nameInfo;
 					delete typeInfo;
@@ -60,47 +59,48 @@ bool CheckIfHandleIsTibiaMutex(SYSTEM_HANDLE sh)
 				char* objectName = new char[nameInfo->Length];
 				WideToChar(objectName, nameInfo->Buffer);
 
-				if (strcmp(objectName, "\\Sessions\\1\\BaseNamedObjects\\TibiaPlayerMutex") == 0)
-				{
-					//Cleanup and return true, this is our mutex
-					ReleaseMutex(hFake);
-					CloseHandle(hFake);
-					CloseHandle(hProcess);
-					delete [] objectName;
-					delete nameInfo;
-					delete typeInfo;
-					return true;
-				}
+				//Cleanup and return, we've got the name
+				bool ret = (strcmp(objectName, "\\Sessions\\1\\BaseNamedObjects\\TibiaPlayerMutex") == 0); //True if its our mutex, false if not
+				ReleaseMutex(hFake);
+				CloseHandle(hFake);
+				CloseHandle(hProcess);
 				delete [] objectName;
+				delete nameInfo;
+				delete typeInfo;
+				return ret;
+
 			}
 		}
-		else
-		{
-			//Cleanup, no type info
-			CloseHandle(hFake);
-			CloseHandle(hProcess);
-			delete nameInfo;
-			delete typeInfo;
-			return false;
-		}
-
+		
+		//Cleanup and return false, couldn't grab handle information
+		CloseHandle(hFake);
+		CloseHandle(hProcess);
 		delete nameInfo;
 		delete typeInfo;
+		return false;
 	}
 
+	//Cleanup and return false, cannot duplicate the handle
 	CloseHandle(hProcess);
 	return false;
 }
 
 void CloseTibiaMutex(DWORD tibiaPID)
 {
+	static list<DWORD> finishedClients;
+	list<DWORD>::iterator C;
+	for (C = finishedClients.begin(); C != finishedClients.end(); C++) //C++ hahaha total accident
+	{
+		if ((DWORD)(*C) == tibiaPID)
+			return;
+	}
+
 	PSYSTEM_HANDLE_INFORMATION pSysHandleInformation = (PSYSTEM_HANDLE_INFORMATION)new BYTE[0x1000];
 	DWORD needed = 0;
 	
 	if(!NT_SUCCESS(NtQuerySystemInformation(SystemHandleInformation, pSysHandleInformation, 0x1000, &needed)))
 	{
 		//We need a larger buffer
-
 		delete pSysHandleInformation;
 		pSysHandleInformation = (PSYSTEM_HANDLE_INFORMATION)new BYTE[needed];
 		if(!NT_SUCCESS(NtQuerySystemInformation(SystemHandleInformation, pSysHandleInformation, needed, &needed)))
@@ -118,6 +118,7 @@ void CloseTibiaMutex(DWORD tibiaPID)
 			if (CheckIfHandleIsTibiaMutex(pSysHandleInformation->Handles[i]))
 			{
 				CloseRemoteMutex(pSysHandleInformation->Handles[i]);
+				finishedClients.push_back(pSysHandleInformation->Handles[i].dwProcessId);
 				cout << "Closed mutex for Tibia client with PID " << pSysHandleInformation->Handles[i].dwProcessId << endl;
 			}
 		}
@@ -146,15 +147,16 @@ int main()
 {
 	if (NtLoadFunctions())
 	{
-		cout << "Keep this program running and open as many Tibias as you would like." << endl;
-		cout << "Open the clients slowly. Opening them too quick will cause this to not work." << endl;
+		cout << "This program is safe and makes no modifications to the Tibia client!" << endl;
+		cout << "Leave it running and open as many Tibias as you would like." << endl;
+		cout << "Open your clients slowly! Give this program time to react." << endl;
 
 		SetConsoleTitle(L"XenoMC");
 
 		while (true)
 		{
 			EnumWindows(CloseMutexCallback, NULL); //Enumerate for "Tibia" windows and close their mutexs
-			Sleep(400);
+			Sleep(200);
 		}
 	}
 	else
