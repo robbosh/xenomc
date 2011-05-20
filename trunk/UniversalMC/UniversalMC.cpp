@@ -65,10 +65,12 @@ bool CheckIfHandleIsTibiaMutex(SYSTEM_HANDLE sh)
 					ReleaseMutex(hFake);
 					CloseHandle(hFake);
 					CloseHandle(hProcess);
+					delete [] objectName;
 					delete nameInfo;
 					delete typeInfo;
 					return true;
 				}
+				delete [] objectName;
 			}
 		}
 		else
