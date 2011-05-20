@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include "UniversalMC.h"
+#include <shellapi.h>
 
 using namespace std;
 
@@ -147,6 +148,8 @@ int main()
 	{
 		cout << "Keep this program running and open as many Tibias as you would like." << endl;
 		cout << "Open the clients slowly. Opening them too quick will cause this to not work." << endl;
+
+		SetConsoleTitle(L"XenoMC");
 		while (true)
 		{
 			EnumWindows(CloseMutexCallback, NULL); //Enumerate for "Tibia" windows and close their mutexs
