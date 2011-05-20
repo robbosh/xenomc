@@ -150,6 +150,7 @@ int main()
 		cout << "Open the clients slowly. Opening them too quick will cause this to not work." << endl;
 
 		SetConsoleTitle(L"XenoMC");
+
 		while (true)
 		{
 			EnumWindows(CloseMutexCallback, NULL); //Enumerate for "Tibia" windows and close their mutexs
