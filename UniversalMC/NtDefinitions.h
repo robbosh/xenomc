@@ -1,6 +1,8 @@
+#ifndef	_NT_DEFINITIONS_H
+#define _NT_DEFINITIONS_H
+
 #include <windows.h>
 #include <ntstatus.h>
-
 
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
 
@@ -130,23 +132,11 @@ typedef NTSTATUS ( WINAPI *PNtQuerySystemInformation)
 				   IN	ULONG					 SystemInformationLength,
 				   OUT	PULONG					 ReturnLength OPTIONAL );
 
-_NtDuplicateObject NtDuplicateObject;
-_NtClose NtClose;
-_NtQuerySystemInformation NtQuerySystemInformation;
-_NtQueryObject NtQueryObject;
+extern _NtDuplicateObject NtDuplicateObject;
+extern _NtClose NtClose;
+extern _NtQuerySystemInformation NtQuerySystemInformation;
+extern _NtQueryObject NtQueryObject;
 
-bool NtLoadFunctions()
-{
-	HINSTANCE NTdll = LoadLibraryA("ntdll.dll");
-	if (NTdll)
-	{
-		NtDuplicateObject = (_NtDuplicateObject)GetProcAddress(NTdll, "NtDuplicateObject");
-		NtClose = (_NtClose)GetProcAddress(NTdll, "NtClose");
-		NtQuerySystemInformation = (_NtQuerySystemInformation)GetProcAddress(NTdll, "NtQuerySystemInformation");
-		NtQueryObject = (_NtQueryObject)GetProcAddress(NTdll, "NtQueryObject");
+extern bool NtLoadFunctions();
 
-		return true;
-	}
-
-	return false;
-}
+#endif
