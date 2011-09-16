@@ -1,12 +1,8 @@
-void WideToChar(char* Dest, const WCHAR* Source)
-{
-	int i = 0;
+#include <windows.h>
 
-	while(Source[i] != '\0')
-	{
-		Dest[i] = (CHAR)Source[i];
-		++i;
-	}
+#ifndef	_UTILS_H
+#define _UTILS_H
 
-	Dest[i] = '\0';
-}
+void WideToChar(char* Dest, const WCHAR* Source);
+
+#endif

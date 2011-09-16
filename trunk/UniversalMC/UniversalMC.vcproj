@@ -173,7 +173,19 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\NtDefinitions.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SystemHandle.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\UniversalMC.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Utils.cpp"
 				>
 			</File>
 		</Filter>
@@ -191,7 +203,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\UniversalMC.h"
+				RelativePath=".\SystemHandle.h"
 				>
 			</File>
 			<File

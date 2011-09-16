@@ -3,87 +3,20 @@
 //http://forum.sysinternals.com/topic14546.html
 //http://www.codeproject.com/KB/shell/OpenedFileFinder.aspx
 
+
+#include <windows.h>
+#include <shellapi.h>
+#include <list>
 #include <string>
 #include <iostream>
-#include "UniversalMC.h"
+#include <shellapi.h>
+
+#include "resource.h"
+
+#include "SystemHandle.h"
+#include "Utils.h"
 
 using namespace std;
-
-
-void CloseRemoteMutex(SYSTEM_HANDLE sh)
-{
-	HANDLE hProcess, hFake;
-	hProcess = OpenProcess(PROCESS_ALL_ACCESS, 0, sh.dwProcessId);
-	if (NT_SUCCESS(NtDuplicateObject(hProcess, (HANDLE)sh.wValue, GetCurrentProcess(), &hFake, 0, 0, DUPLICATE_CLOSE_SOURCE)))
-	{
-		ReleaseMutex(hFake);
-		CloseHandle(hFake);
-	}
-
-	NtClose(hProcess);
-}
-
-bool CheckIfHandleIsTibiaMutex(SYSTEM_HANDLE sh)
-{
-	//This function can be cleaned up alot. But I'm lazy. :D
-	HANDLE hProcess, hFake;
-	hProcess = OpenProcess(PROCESS_ALL_ACCESS, 0, sh.dwProcessId);
-	if (NT_SUCCESS(NtDuplicateObject(hProcess, (HANDLE)sh.wValue, GetCurrentProcess(), &hFake, 0, 0, 0)))
-	{
-		POBJECT_TYPE_INFORMATION typeInfo = (POBJECT_TYPE_INFORMATION)new BYTE[0x1000];
-		PUNICODE_STRING nameInfo = (PUNICODE_STRING)new BYTE[0x1000];
-		DWORD read;
-		
-		
-		if (NT_SUCCESS(NtQueryObject(hFake, ObjectTypeInformation, typeInfo, 0x1000, &read)))
-		{
-
-			if (!NT_SUCCESS(NtQueryObject(hFake, ObjectNameInformation, nameInfo, 0x1000, &read)))
-			{
-				//We need a bigger name buffer
-				delete nameInfo;
-				nameInfo = (PUNICODE_STRING)new BYTE[0x1000];
-				if (!NtQueryObject(hFake, ObjectNameInformation, nameInfo, 0x1000, &read))
-				{
-					//Cleanup, no name info
-					CloseHandle(hFake);
-					CloseHandle(hProcess);
-					delete nameInfo;
-					delete typeInfo;
-					return false;
-				}
-			}
-
-			if (nameInfo->Length > 0)
-			{
-				char* objectName = new char[nameInfo->Length];
-				WideToChar(objectName, nameInfo->Buffer);
-
-				//Cleanup and return, we've got the name
-				bool ret = (strcmp(objectName, "\\Sessions\\1\\BaseNamedObjects\\TibiaPlayerMutex") == 0); //True if its our mutex, false if not
-				ReleaseMutex(hFake);
-				CloseHandle(hFake);
-				CloseHandle(hProcess);
-				delete [] objectName;
-				delete nameInfo;
-				delete typeInfo;
-				return ret;
-
-			}
-		}
-		
-		//Cleanup and return false, couldn't grab handle information
-		CloseHandle(hFake);
-		CloseHandle(hProcess);
-		delete nameInfo;
-		delete typeInfo;
-		return false;
-	}
-
-	//Cleanup and return false, cannot duplicate the handle
-	CloseHandle(hProcess);
-	return false;
-}
 
 void CloseTibiaMutex(DWORD tibiaPID)
 {
@@ -95,36 +28,23 @@ void CloseTibiaMutex(DWORD tibiaPID)
 			return;
 	}
 
-	PSYSTEM_HANDLE_INFORMATION pSysHandleInformation = (PSYSTEM_HANDLE_INFORMATION)new BYTE[0x1000];
-	DWORD needed = 0;
-	
-	if(!NT_SUCCESS(NtQuerySystemInformation(SystemHandleInformation, pSysHandleInformation, 0x1000, &needed)))
+	list<SystemHandle*> handles = SystemHandle::EnumerateProcessHandles(tibiaPID);
+	list<SystemHandle*>::iterator hit;
+	SystemHandle* sysHandle;
+
+	for (hit = handles.begin(); hit != handles.end(); hit++)
 	{
-		//We need a larger buffer
-		delete pSysHandleInformation;
-		pSysHandleInformation = (PSYSTEM_HANDLE_INFORMATION)new BYTE[needed];
-		if(!NT_SUCCESS(NtQuerySystemInformation(SystemHandleInformation, pSysHandleInformation, needed, &needed)))
+		sysHandle = (SystemHandle*)*hit;
+		if (strcmp(sysHandle->GetName(), "\\Sessions\\1\\BaseNamedObjects\\TibiaPlayerMutex") == 0)
 		{
-			//clean up, no handle info
-			delete pSysHandleInformation;
-			return;
+			sysHandle->Close(true);
+			finishedClients.push_back(sysHandle->GetNativeSystemHandle().dwProcessId);
+			cout << "Closed mutex for Tibia client with PID " << sysHandle->GetNativeSystemHandle().dwProcessId << endl;
 		}
+
+		delete sysHandle;
 	}
 
-	for (int i = 0; i < pSysHandleInformation->dwCount; i++)
-	{
-		if (pSysHandleInformation->Handles[i].dwProcessId == tibiaPID)
-		{
-			if (CheckIfHandleIsTibiaMutex(pSysHandleInformation->Handles[i]))
-			{
-				CloseRemoteMutex(pSysHandleInformation->Handles[i]);
-				finishedClients.push_back(pSysHandleInformation->Handles[i].dwProcessId);
-				cout << "Closed mutex for Tibia client with PID " << pSysHandleInformation->Handles[i].dwProcessId << endl;
-			}
-		}
-	}
-
-	delete pSysHandleInformation;
 }
 
 BOOL CALLBACK CloseMutexCallback(HWND temp, LPARAM lParam)
@@ -141,7 +61,6 @@ BOOL CALLBACK CloseMutexCallback(HWND temp, LPARAM lParam)
 	delete [] wndText;
 	return TRUE;
 }
-
 
 int main()
 {
