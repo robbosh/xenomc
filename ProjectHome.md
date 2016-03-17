@@ -1,0 +1,1 @@
+An advanced way of MCing on Tibia which works by hijacking active handles, detecting active mutexs, and closing those which prevent MCing.
